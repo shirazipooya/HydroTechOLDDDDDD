@@ -219,4 +219,156 @@ print(tmp)
 del tmp, file_name
 
 
+# %% Data Cleansing: Define Spots Class
+Spots_Class = {
+    'میادین': '01',
+    'لچکی ها': '02',
+    'آیلند های بزرگراه': '03',
+    'آیلند ها': '04',
+    'حاشیه های بزرگراه': '05',
+    'حاشیه معابر': '06',
+    'بوستان خطی': '07',
+    'پارک های زیر 6 هکتار': '08',
+    'پارک های بین 6 تا 10 هکتار': '09',
+    'پارک های بالای 10 هکتار': '10',
+    'جنگل کاری داخل محدوده': '11',
+    'کمربندی': '12',
+    'کمربند سبز حفاظتی': '13',
+}
+
+
+# %% Data Cleansing: Spots Class
+# Extract All Spots Class From Data
+tmp = raw_data['نوع لکه'].value_counts(dropna=False, sort=True)
+tmp = tmp.reset_index().rename(columns={'index': 'نوع لکه',
+                                        'نوع لکه': 'تعداد'})
+
+tmp['Spot'] = list(map(Spots_Class.get, tmp['نوع لکه']))
+
+file_name = PROJECT_PATH + 'Report/Type_of_Spots.xlsx'
+tmp.to_excel(file_name, index=False)
+
+# Add Spots Class to raw_data
+tmp = tmp[['نوع لکه', 'Spot']]
+raw_data = pd.merge(raw_data,
+                    tmp,
+                    how='left',
+                    on=['نوع لکه'])
+
+del tmp, file_name
+
+
+# %% Data Cleansing: Define Irrigation Method Class
+Irrigation_Method_Class = {
+    'آبیاری ثقلی': '01',
+    'آبیاری تانکری': '02',
+    'آبیاری شلنگی': '03',
+    'آبیاری تحت فشار': '04'
+}
+
+
+# %% Cleansing: Irrigation Method Class
+# Extract All Irrigation Method Class From Data
+tmp = raw_data['زیرمجموعه هر قلم'].value_counts(dropna=False, sort=True)
+tmp = tmp.reset_index().rename(columns={'index': 'زیرمجموعه هر قلم',
+                                        'زیرمجموعه هر قلم': 'تعداد'})
+
+tmp['Irrigation'] = list(map(Irrigation_Method_Class.get,
+                             tmp['زیرمجموعه هر قلم']))
+
+# Add Irrigation Method Class to raw_data
+tmp = tmp[['زیرمجموعه هر قلم', 'Irrigation']]
+raw_data = pd.merge(raw_data,
+                    tmp,
+                    how='left',
+                    on=['زیرمجموعه هر قلم'])
+
+raw_data.fillna(value=np.nan, inplace=True)
+
+del tmp
+
+
+# %% Cleansing: Define Species Plant Class
+Species_Plant_Class = {
+    'چمن': '01',
+    'گل دائم باغچه های معمولی': '02',
+    'گل دائم فلاورباکسهای سطوح شیب دار': '04',
+    'گل فصل باغچه های معمولی': '05',
+    'پرچین': '06',
+    'درخت و درختچه': '10',
+    'درختان جنگلی': '12',
+    'گل فصل فلاورباکس های سطوح شیب دار': '14'
+}
+
+# %% Cleansing: Species Plant Class
+# Extract All Species Plant Class From Data
+tmp = raw_data['نوع قلم'].value_counts(dropna=False, sort=True)
+tmp = tmp.reset_index().rename(columns={'index': 'نوع قلم',
+                                        'نوع قلم': 'تعداد'})
+
+tmp['Species'] = list(map(Species_Plant_Class.get, tmp['نوع قلم']))
+
+# Add Species Plant Class to raw_data
+tmp = tmp[['نوع قلم', 'Species']]
+raw_data = pd.merge(raw_data,
+                    tmp,
+                    how='left',
+                    on=['نوع قلم'])
+raw_data.fillna(value=np.nan, inplace=True)
+
+del tmp
+
+
+# %% Report: Species Plant Class In Data
+tmp = raw_data.groupby(['نوع قلم', 'زیرمجموعه هر قلم']).size()
+tmp = tmp.reset_index().rename(columns={0: 'تعداد'})
+
+file_name = PROJECT_PATH + '/Report/Ghalam_SubGhalam.xlsx'
+tmp.to_excel(file_name, index=False)
+
+del tmp, file_name
+
+tmp = raw_data.groupby(['زیرمجموعه هر قلم', 'نوع قلم']).size()
+tmp = tmp.reset_index().rename(columns={0: 'تعداد'})
+
+file_name = PROJECT_PATH + '/Report/SubGhalam_Ghalam.xlsx'
+tmp.to_excel(file_name, index=False)
+
+del tmp, file_name
+
+
+# %% Cleansing: Generate ID
+# Check Number of NaN
+raw_data[['Region', 'District', 'Peyman',
+          'Address', 'Spot', 'Irrigation', 'Species']].isnull().sum()
+
+# Generate ID
+tmp = 'Region + District + Peyman + Address + "-" + Spot + Irrigation + Species'
+raw_data = raw_data >> define(ID=tmp)
+
+del tmp
+
+# %% Report: ID Check
+tmp = raw_data.astype(str).groupby(['ID']).size()
+tmp = pd.DataFrame(tmp).rename(columns={0: 'Count'})
+tmp >> query("Count >= 2")
+
+del tmp
+
+# %% Report: Save And Remove Duplicate ID
+tmp = raw_data.dropna(subset=['ID']).duplicated(subset="ID", keep=False)
+tmp = raw_data.dropna(subset=['ID'])[tmp.values]
+
+file_name = PROJECT_PATH + '/Report/Duplicate_ID.xlsx'
+tmp.to_excel(file_name, index=False)
+
+tmp = raw_data.dropna(subset=['ID']).duplicated(subset="ID", keep='last')
+tmp = tmp[tmp.values == True].index
+raw_data.drop(axis=0, index=tmp, inplace=True)
+
+del tmp, file_name
+
+print(f"Data Size: {raw_data.shape}")
+
+
 # %%
